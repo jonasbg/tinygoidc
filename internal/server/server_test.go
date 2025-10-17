@@ -13,7 +13,15 @@ import (
 
 	"gotiny-oidc/internal/config"
 	"gotiny-oidc/internal/oidc"
+    "os"
+    "github.com/gin-gonic/gin"
 )
+
+func TestMain(m *testing.M) {
+	// Quiet Gin logs during tests
+	gin.SetMode(gin.ReleaseMode)
+	os.Exit(m.Run())
+}
 
 // helper: perform authorize flow: GET /authorize?client_id=...&redirect_uri=...&code_challenge=... then POST /authorize with selected user
 func doAuthorize(t *testing.T, srv http.Handler, users []config.User, clientID, redirectURI, codeChallenge, method string) (code string) {
@@ -319,5 +327,46 @@ func TestHandleToken_UnsupportedCodeChallengeMethod(t *testing.T) {
 	s.Engine.ServeHTTP(w, req)
 	if w.Code != 400 {
 		t.Fatalf("expected 400 for unsupported code_challenge_method, got %d", w.Code)
+	}
+}
+
+func TestStaticCSSServed(t *testing.T) {
+	users := []config.User{{Name: "Alice", Email: "alice@example.com"}}
+	ks := oidc.GenerateKeySet()
+	s := New(users, ks)
+
+	req := httptest.NewRequest("GET", "/static/styles.css", nil)
+	w := httptest.NewRecorder()
+	s.Engine.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("expected 200 OK, got %d", w.Code)
+	}
+	ct := w.Header().Get("Content-Type")
+	if !strings.HasPrefix(ct, "text/css") {
+		t.Fatalf("expected Content-Type text/css, got %q", ct)
+	}
+	if !strings.Contains(w.Body.String(), "font-family") {
+		t.Fatalf("expected css body to contain 'font-family', got %q", w.Body.String())
+	}
+}
+
+func TestIndexTemplateRendering(t *testing.T) {
+	users := []config.User{{Name: "Alice Example", Email: "alice@example.com"}}
+	ks := oidc.GenerateKeySet()
+	s := New(users, ks)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	s.Engine.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("expected 200 OK, got %d", w.Code)
+	}
+	body := w.Body.String()
+	// page title may vary; assert the site name is present
+	if !strings.Contains(body, "tinygoidc") {
+		t.Fatalf("expected body to contain page title/site name, got %q", body)
+	}
+	if !strings.Contains(body, "Alice Example") {
+		t.Fatalf("expected body to contain user name, got %q", body)
 	}
 }
