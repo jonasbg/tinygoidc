@@ -75,10 +75,7 @@ func New(users []config.User, keys *oidc.KeySet) *Server {
 
 		// fallback to on-disk locations (dev): check common candidate paths
 		candidates := []string{
-			"static/" + clean,
 			"internal/templates/assets/static/" + clean,
-			"templates/assets/static/" + clean,
-			"templates/static/" + clean,
 		}
 		for _, p := range candidates {
 			if df, derr := os.Open(p); derr == nil {
