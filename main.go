@@ -37,6 +37,9 @@ type AuthCodeData struct {
 	User      User
 	ClientID  string
 	ExpiresAt time.Time
+	// PKCE fields
+	CodeChallenge       string
+	CodeChallengeMethod string
 }
 
 var (
@@ -48,6 +51,30 @@ var (
 	authCodesMux  sync.Mutex
 	pageTemplates map[string]*template.Template
 )
+
+func main() {
+	loadUsers()
+	generateKey()
+	r := setupRouter()
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "9999"
+	}
+	addr := fmt.Sprintf("0.0.0.0:%s", port)
+	log.Printf("Mock OIDC server listening at http://localhost:%s", port)
+	log.Fatal(r.Run(addr))
+}
+
+func registerRoutes(r *gin.Engine) {
+	r.GET("/", func(c *gin.Context) { handleIndex(c) })
+	r.GET("/authorize", func(c *gin.Context) { handleAuthorizeGet(c) })
+	r.POST("/authorize", func(c *gin.Context) { handleAuthorizePost(c) })
+	r.POST("/token", func(c *gin.Context) { handleToken(c) })
+	r.GET("/login", func(c *gin.Context) { handleLoginRedirect(c) })
+	r.GET("/jwks.json", func(c *gin.Context) { handleJWKS(c) })
+	r.GET("/.well-known/openid-configuration", func(c *gin.Context) { handleDiscovery(c) })
+}
 
 func loadUsers() {
 	usersPath := os.Getenv("USERS")
@@ -111,10 +138,8 @@ func generateKey() {
 	keyID = base64.URLEncoding.EncodeToString(hash[:])[:8]
 }
 
-func main() {
-	loadUsers()
-	generateKey()
-
+// setupRouter prepares templates and routes and returns a configured *gin.Engine
+func setupRouter() *gin.Engine {
 	// Parse layout + each page separately so named blocks like {{define "content"}} do not collide
 	var err error
 	layoutPath := filepath.Join("templates", "layout.html")
@@ -155,26 +180,12 @@ func main() {
 	// Create Gin router
 	r := gin.Default()
 
-	// We execute page-specific templates directly to avoid define-name collisions
-
 	// Serve static assets from /static
 	r.Static("/static", "static")
 
-	r.GET("/", func(c *gin.Context) { handleIndex(c) })
-	r.GET("/authorize", func(c *gin.Context) { handleAuthorizeGet(c) })
-	r.POST("/authorize", func(c *gin.Context) { handleAuthorizePost(c) })
-	r.POST("/token", func(c *gin.Context) { handleToken(c) })
-	r.GET("/login", func(c *gin.Context) { handleLoginRedirect(c) })
-	r.GET("/jwks.json", func(c *gin.Context) { handleJWKS(c) })
-	r.GET("/.well-known/openid-configuration", func(c *gin.Context) { handleDiscovery(c) })
+	registerRoutes(r)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "9999"
-	}
-	addr := fmt.Sprintf("0.0.0.0:%s", port)
-	log.Printf("Mock OIDC server listening at http://localhost:%s", port)
-	log.Fatal(r.Run(addr))
+	return r
 }
 
 func handleLoginRedirect(c *gin.Context) {
@@ -208,6 +219,8 @@ func handleAuthorizeGet(c *gin.Context) {
 	redirectURI := c.Query("redirect_uri")
 	state := c.Query("state")
 	nonce := c.Query("nonce")
+	codeChallenge := c.Query("code_challenge")
+	codeChallengeMethod := c.Query("code_challenge_method")
 
 	if clientID == "" || redirectURI == "" {
 		c.String(400, "Missing client_id or redirect_uri")
@@ -222,11 +235,13 @@ func handleAuthorizeGet(c *gin.Context) {
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Status(200)
 	if err := t.ExecuteTemplate(c.Writer, "layout.html", gin.H{
-		"Users":       users,
-		"ClientID":    clientID,
-		"RedirectURI": redirectURI,
-		"State":       state,
-		"Nonce":       nonce,
+		"Users":               users,
+		"ClientID":            clientID,
+		"RedirectURI":         redirectURI,
+		"State":               state,
+		"Nonce":               nonce,
+		"CodeChallenge":       codeChallenge,
+		"CodeChallengeMethod": codeChallengeMethod,
 	}); err != nil {
 		log.Printf("template exec error: %v", err)
 	}
@@ -239,6 +254,8 @@ func handleAuthorizePost(c *gin.Context) {
 	clientID := c.PostForm("client_id")
 	redirectURI := c.PostForm("redirect_uri")
 	state := c.PostForm("state")
+	codeChallenge := c.PostForm("code_challenge")
+	codeChallengeMethod := c.PostForm("code_challenge_method")
 
 	if sub == "" || clientID == "" || redirectURI == "" {
 		c.String(400, "Missing parameters")
@@ -270,9 +287,11 @@ func handleAuthorizePost(c *gin.Context) {
 	// Store code with user and client
 	authCodesMux.Lock()
 	authCodes[code] = AuthCodeData{
-		User:      *user,
-		ClientID:  clientID,
-		ExpiresAt: time.Now().Add(5 * time.Minute),
+		User:                *user,
+		ClientID:            clientID,
+		ExpiresAt:           time.Now().Add(5 * time.Minute),
+		CodeChallenge:       codeChallenge,
+		CodeChallengeMethod: codeChallengeMethod,
 	}
 	authCodesMux.Unlock()
 
@@ -295,6 +314,7 @@ func handleAuthorizePost(c *gin.Context) {
 func handleToken(c *gin.Context) {
 	code := c.PostForm("code")
 	clientID := c.PostForm("client_id")
+	codeVerifier := c.PostForm("code_verifier")
 
 	authCodesMux.Lock()
 	authData, ok := authCodes[code]
@@ -311,6 +331,37 @@ func handleToken(c *gin.Context) {
 	}
 	delete(authCodes, code) // one-time use
 	authCodesMux.Unlock()
+
+	// If this code had a PKCE challenge, require and validate code_verifier
+	if authData.CodeChallenge != "" {
+		if codeVerifier == "" {
+			c.String(400, "Missing code_verifier for PKCE-protected code")
+			return
+		}
+		method := strings.ToUpper(authData.CodeChallengeMethod)
+		switch method {
+		case "S256":
+			// compute base64url(sha256(code_verifier)) without padding
+			h := sha256.Sum256([]byte(codeVerifier))
+			computed := base64.RawURLEncoding.EncodeToString(h[:])
+			if computed != authData.CodeChallenge {
+				c.String(400, "Invalid code_verifier")
+				return
+			}
+		case "":
+			fallthrough
+		case "PLAIN":
+			// Plain method is insecure; warn developers using this mock server.
+			log.Printf("[WARNING] PKCE using plain code_challenge_method detected for client %s - plain is insecure; prefer S256", clientID)
+			if codeVerifier != authData.CodeChallenge {
+				c.String(400, "Invalid code_verifier")
+				return
+			}
+		default:
+			c.String(400, "Unsupported code_challenge_method")
+			return
+		}
+	}
 
 	now := time.Now()
 	issuer := fmt.Sprintf("http://%s", c.Request.Host)
@@ -372,6 +423,7 @@ func handleDiscovery(c *gin.Context) {
 		"subject_types_supported":               []string{"public"},
 		"scopes_supported":                      []string{"openid", "email", "profile"},
 		"token_endpoint_auth_methods_supported": []string{"client_secret_basic", "none"},
+		"code_challenge_methods_supported":      []string{"S256", "plain"},
 	}
 	c.JSON(200, config)
 }

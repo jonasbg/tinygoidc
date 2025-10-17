@@ -99,6 +99,31 @@ Login page
 - JWKS endpoint: /jwks.json
 - Discovery: /.well-known/openid-configuration
 
+## PKCE (Proof Key for Code Exchange)
+
+This mock server supports PKCE for the authorization code flow. It accepts both S256 and plain methods (plain is supported for testing convenience but is insecure in real deployments).
+
+Example (S256):
+
+1. Choose a code_verifier, e.g. `random-64-chars`.
+2. Compute the code_challenge: `base64url_encode_no_padding(sha256(code_verifier))`.
+3. Start the authorization request:
+
+```
+GET /authorize?response_type=code&client_id=your-client&redirect_uri=http://localhost/cb&code_challenge=<challenge>&code_challenge_method=S256
+```
+
+4. After completing the interactive login, exchange the code for tokens:
+
+```
+POST /token
+Content-Type: application/x-www-form-urlencoded
+
+code=<code>&client_id=your-client&code_verifier=<the-original-verifier>
+```
+
+If you use `plain` as `code_challenge_method`, the server will accept it but will log a warning advising to use S256 instead.
+
 ## License
 
 This project is licensed under the MIT License.
