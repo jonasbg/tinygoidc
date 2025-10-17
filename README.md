@@ -1,6 +1,6 @@
 <div align="center">
   <h1 align="center">tinygoidc</h1>
-  <img src="static/tinygoidc.png" alt="tinygoidc" width="220">
+  <img src="internal/templates/assets/static/tinygoidc.png" alt="tinygoidc" width="220">
   <br>
   <a href="#overview">About</a> •
   <a href="#get-started">Get Started</a> •
@@ -54,7 +54,7 @@ Prerequisites:
 Run locally with Go:
 
 ```bash
-go run main.go
+go run cmd/tinygoidc/main.go
 ```
 
 Build and run with Docker (from repository root):
@@ -65,6 +65,15 @@ docker run --rm -p 9999:9999 tinygoidc:latest
 ```
 
 By default the server listens on port 9999 when run with `go run`. When the container runs it exposes port `9999`.
+
+### Tests
+
+Run tests with test coverage
+
+```bash
+go test ./... -coverprofile=coverage.out
+go tool cover -func=coverage.out
+```
 
 ## Configuration
 
@@ -88,10 +97,10 @@ Environment variables:
 # Screenshots
 
 Landing page
-![landing](static/landing.png)
+![landing](.github/docs/landing.png)
 
 Login page
-![login](static/login.png)
+![login](.github/docs/login.png)
 
 ## Quick reference
 
