@@ -7,7 +7,8 @@ RUN go mod download
 COPY . .
 
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -ldflags='-s -w' -o /out/gotiny-oidc ./
+# Build the command located under cmd/gotiny-oidc
+RUN go build -ldflags='-s -w' -o /out/gotiny-oidc ./cmd/gotiny-oidc
 RUN apk add --no-cache upx
 RUN upx --best --lzma /out/gotiny-oidc
 
@@ -21,9 +22,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY --from=builder /out/gotiny-oidc /usr/local/bin/gotiny-oidc
 
 # Copy templates and static files
-COPY --from=builder /src/templates /templates
-COPY --from=builder /src/static /static
-
+## templates/static are embedded into the binary via go:embed
 # Provide a default users.yaml and allow it to be overridden by a volume mount
 COPY --from=builder /src/users.yaml /config/users.yaml
 VOLUME ["/config"]
