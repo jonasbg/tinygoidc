@@ -11,7 +11,7 @@
 
 tinygoidc is a tiny, opinionated mock OpenID Connect (OIDC) provider implemented in Go. It's meant for local development and testing when you need a simple issuer that supports the authorization code flow, a JWKS endpoint, and short-lived ID tokens.
 
-Keep it simple — the server ships as a single compiled binary and a small `users.yaml` for test accounts.
+Keep it simple — the server ships as a tiny binary (<5MB) and a small `users.yaml` for test accounts.
 
 > [!WARNING]
 > Do not install this in a production environment! This is only meant for local development.  
@@ -24,6 +24,7 @@ Keep it simple — the server ships as a single compiled binary and a small `use
 - Exposes `/jwks.json` and `/.well-known/openid-configuration`
 - Simple YAML-based user configuration (`users.yaml`)
 - Small Docker image (final image uses `FROM scratch`)
+- PKCE supported (S256 recommended; 'plain' allowed for testing only, with warning)
 
 ## Get Started
 
