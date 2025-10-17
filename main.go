@@ -55,6 +55,12 @@ func loadUsers() {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		log.Fatalf("Failed to parse users.yaml: %v", err)
 	}
+	// Infer sub from email when not provided.
+	for i := range cfg.Users {
+		if cfg.Users[i].Sub == "" {
+			cfg.Users[i].Sub = cfg.Users[i].Email
+		}
+	}
 	users = cfg.Users
 }
 
@@ -125,7 +131,7 @@ func handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	{{range .Users}}
 		<li>
 			<label>
-				<input type="radio" name="sub" value="{{.Sub}}" required> {{.Name}} ({{.Email}})
+				<input type="radio" name="sub" value="{{.Email}}" required> {{.Name}} ({{.Email}})
 			</label>
 		</li>
 	{{end}}
@@ -151,7 +157,7 @@ func handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
-	sub := r.FormValue("sub")
+	sub := r.FormValue("sub") // now contains the user's email
 	clientID := r.FormValue("client_id")
 	redirectURI := r.FormValue("redirect_uri")
 	state := r.FormValue("state")
@@ -162,10 +168,10 @@ func handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Find user
+	// Find user by email (sub now holds email)
 	var user *User
 	for _, u := range users {
-		if u.Sub == sub {
+		if u.Email == sub {
 			user = &u
 			break
 		}
@@ -239,7 +245,7 @@ func handleToken(w http.ResponseWriter, r *http.Request) {
 	issuer := fmt.Sprintf("http://%s", r.Host)
 
 	claims := jwt.MapClaims{
-		"sub":   authData.User.Sub,
+		"sub":   authData.User.Email, // use email as sub
 		"email": authData.User.Email,
 		"name":  authData.User.Name,
 		"iss":   issuer,
