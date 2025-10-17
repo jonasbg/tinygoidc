@@ -88,10 +88,10 @@ Environment variables:
 # Screenshots
 
 Landing page
-![landing](static/landing.png)
+![landing](.github/docs/landing.png)
 
 Login page
-![login](static/login.png)
+![login](.github/docs/login.png)
 
 ## Quick reference
 
