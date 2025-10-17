@@ -13,8 +13,9 @@ import (
 
 	"gotiny-oidc/internal/config"
 	"gotiny-oidc/internal/oidc"
-    "os"
-    "github.com/gin-gonic/gin"
+	"os"
+
+	"github.com/gin-gonic/gin"
 )
 
 func TestMain(m *testing.M) {
