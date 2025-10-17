@@ -5,18 +5,18 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"math/big"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"gopkg.in/yaml.v2"
 )
@@ -39,13 +39,13 @@ type AuthCodeData struct {
 }
 
 var (
-	users        []User
-	privateKey   *rsa.PrivateKey
-	publicKey    *rsa.PublicKey
-	keyID        string
-	authCodes    = map[string]AuthCodeData{}
-	authCodesMux sync.Mutex
-	templates    *template.Template
+	users         []User
+	privateKey    *rsa.PrivateKey
+	publicKey     *rsa.PublicKey
+	keyID         string
+	authCodes     = map[string]AuthCodeData{}
+	authCodesMux  sync.Mutex
+	pageTemplates map[string]*template.Template
 )
 
 func loadUsers() {
@@ -86,24 +86,58 @@ func main() {
 	loadUsers()
 	generateKey()
 
-	// Parse templates
-	tplGlob := filepath.Join("templates", "*.html")
+	// Parse layout + each page separately so named blocks like {{define "content"}} do not collide
 	var err error
-	templates, err = template.ParseGlob(tplGlob)
+	layoutPath := filepath.Join("templates", "layout.html")
+	// Collect all page files under templates, excluding layout.html
+	var pageFiles []string
+	err = filepath.Walk("templates", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(path, ".html") {
+			// skip layout, we'll include it with each page
+			if filepath.Clean(path) == filepath.Clean(layoutPath) {
+				return nil
+			}
+			pageFiles = append(pageFiles, path)
+		}
+		return nil
+	})
 	if err != nil {
-		log.Fatalf("Failed to parse templates: %v", err)
+		log.Fatalf("Failed to walk templates dir: %v", err)
+	}
+	if len(pageFiles) == 0 {
+		log.Fatalf("No page templates found in templates/ directory")
 	}
 
-	// Serve static assets
-	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	pageTemplates = make(map[string]*template.Template)
+	for _, p := range pageFiles {
+		t, err := template.ParseFiles(layoutPath, p)
+		if err != nil {
+			log.Fatalf("Failed to parse template %s: %v", p, err)
+		}
+		pageTemplates[filepath.Base(p)] = t
+	}
 
-	http.HandleFunc("/", handleIndex)
-	http.HandleFunc("/authorize", handleAuthorize)
-	http.HandleFunc("/token", handleToken)
-	http.HandleFunc("/login", handleLoginRedirect)
-	http.HandleFunc("/jwks.json", handleJWKS)
-	http.HandleFunc("/.well-known/openid-configuration", handleDiscovery)
+	// Create Gin router
+	r := gin.Default()
+
+	// We execute page-specific templates directly to avoid define-name collisions
+
+	// Serve static assets from /static
+	r.Static("/static", "static")
+
+	r.GET("/", func(c *gin.Context) { handleIndex(c) })
+	r.GET("/authorize", func(c *gin.Context) { handleAuthorizeGet(c) })
+	r.POST("/authorize", func(c *gin.Context) { handleAuthorizePost(c) })
+	r.POST("/token", func(c *gin.Context) { handleToken(c) })
+	r.GET("/login", func(c *gin.Context) { handleLoginRedirect(c) })
+	r.GET("/jwks.json", func(c *gin.Context) { handleJWKS(c) })
+	r.GET("/.well-known/openid-configuration", func(c *gin.Context) { handleDiscovery(c) })
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -111,74 +145,74 @@ func main() {
 	}
 	addr := fmt.Sprintf("0.0.0.0:%s", port)
 	log.Printf("Mock OIDC server listening at http://localhost:%s", port)
-	log.Fatal(http.ListenAndServe(addr, nil))
+	log.Fatal(r.Run(addr))
 }
 
-func handleLoginRedirect(w http.ResponseWriter, r *http.Request) {
+func handleLoginRedirect(c *gin.Context) {
 	// Redirect /login?params => /authorize?params
 	u := url.URL{
 		Path:     "/authorize",
-		RawQuery: r.URL.RawQuery,
+		RawQuery: c.Request.URL.RawQuery,
 	}
-	http.Redirect(w, r, u.String(), http.StatusFound)
+	c.Redirect(302, u.String())
 }
 
-func handleIndex(w http.ResponseWriter, r *http.Request) {
-	// Render the layout which will include the index content block
-	// Pass users so the index can render a clickable user list
-	err := templates.ExecuteTemplate(w, "layout.html", map[string]interface{}{
-		"Users": users,
-	})
-	if err != nil {
-		// fallback minimal page
-		fmt.Fprintf(w, "<html><body><h1>Mock OIDC Server</h1><p>Use /authorize to start login.</p></body></html>")
+func handleIndex(c *gin.Context) {
+	// Render index using per-page template to avoid global define name collisions
+	t := pageTemplates["index.html"]
+	if t == nil {
+		c.String(500, "template not found")
 		return
+	}
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.Status(200)
+	if err := t.ExecuteTemplate(c.Writer, "layout.html", gin.H{"Users": users}); err != nil {
+		log.Printf("template exec error: %v", err)
 	}
 }
 
 // GET /authorize shows user login form
 // POST /authorize processes login, issues code and redirects
-func handleAuthorize(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		// Show login page with users and preserve query params
-		clientID := r.URL.Query().Get("client_id")
-		redirectURI := r.URL.Query().Get("redirect_uri")
-		state := r.URL.Query().Get("state")
-		nonce := r.URL.Query().Get("nonce")
+// GET /authorize - render login
+func handleAuthorizeGet(c *gin.Context) {
+	clientID := c.Query("client_id")
+	redirectURI := c.Query("redirect_uri")
+	state := c.Query("state")
+	nonce := c.Query("nonce")
 
-		if clientID == "" || redirectURI == "" {
-			http.Error(w, "Missing client_id or redirect_uri", http.StatusBadRequest)
-			return
-		}
-
-		// Render the layout which will include the login content block
-		err := templates.ExecuteTemplate(w, "layout.html", map[string]interface{}{
-			"Users":       users,
-			"ClientID":    clientID,
-			"RedirectURI": redirectURI,
-			"State":       state,
-			"Nonce":       nonce,
-		})
-		if err != nil {
-			http.Error(w, "Template render error", http.StatusInternalServerError)
-		}
+	if clientID == "" || redirectURI == "" {
+		c.String(400, "Missing client_id or redirect_uri")
 		return
 	}
 
-	// POST /authorize: process login, issue code, redirect back
-	err := r.ParseForm()
-	if err != nil {
-		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+	t := pageTemplates["login.html"]
+	if t == nil {
+		c.String(500, "template not found")
 		return
 	}
-	sub := r.FormValue("sub") // now contains the user's email
-	clientID := r.FormValue("client_id")
-	redirectURI := r.FormValue("redirect_uri")
-	state := r.FormValue("state")
-	// nonce := r.FormValue("nonce")
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.Status(200)
+	if err := t.ExecuteTemplate(c.Writer, "layout.html", gin.H{
+		"Users":       users,
+		"ClientID":    clientID,
+		"RedirectURI": redirectURI,
+		"State":       state,
+		"Nonce":       nonce,
+	}); err != nil {
+		log.Printf("template exec error: %v", err)
+	}
+	_ = nonce
+}
+
+// POST /authorize - process login
+func handleAuthorizePost(c *gin.Context) {
+	sub := c.PostForm("sub")
+	clientID := c.PostForm("client_id")
+	redirectURI := c.PostForm("redirect_uri")
+	state := c.PostForm("state")
 
 	if sub == "" || clientID == "" || redirectURI == "" {
-		http.Error(w, "Missing parameters", http.StatusBadRequest)
+		c.String(400, "Missing parameters")
 		return
 	}
 
@@ -191,15 +225,15 @@ func handleAuthorize(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if user == nil {
-		http.Error(w, "Invalid user", http.StatusBadRequest)
+		c.String(400, "Invalid user")
 		return
 	}
 
 	// Generate a random auth code (base64 32 bytes)
 	b := make([]byte, 32)
-	_, err = rand.Read(b)
+	_, err := rand.Read(b)
 	if err != nil {
-		http.Error(w, "Failed to generate code", http.StatusInternalServerError)
+		c.String(500, "Failed to generate code")
 		return
 	}
 	code := base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
@@ -216,7 +250,7 @@ func handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	// Redirect back to client with code and state
 	u, err := url.Parse(redirectURI)
 	if err != nil {
-		http.Error(w, "Invalid redirect_uri", http.StatusBadRequest)
+		c.String(400, "Invalid redirect_uri")
 		return
 	}
 	q := u.Query()
@@ -226,37 +260,31 @@ func handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	}
 	u.RawQuery = q.Encode()
 
-	http.Redirect(w, r, u.String(), http.StatusFound)
+	c.Redirect(302, u.String())
 }
 
-func handleToken(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	if err != nil {
-		http.Error(w, "Failed to parse form", http.StatusBadRequest)
-		return
-	}
-	code := r.PostFormValue("code")
-	clientID := r.PostFormValue("client_id")
-	// clientSecret ignored in mock
+func handleToken(c *gin.Context) {
+	code := c.PostForm("code")
+	clientID := c.PostForm("client_id")
 
 	authCodesMux.Lock()
 	authData, ok := authCodes[code]
 	if !ok || authData.ExpiresAt.Before(time.Now()) {
 		authCodesMux.Unlock()
-		http.Error(w, "Invalid or expired code", http.StatusBadRequest)
+		c.String(400, "Invalid or expired code")
 		return
 	}
 	// Optional: check clientID matches stored clientID
 	if clientID != authData.ClientID {
 		authCodesMux.Unlock()
-		http.Error(w, "Invalid client_id for code", http.StatusBadRequest)
+		c.String(400, "Invalid client_id for code")
 		return
 	}
 	delete(authCodes, code) // one-time use
 	authCodesMux.Unlock()
 
 	now := time.Now()
-	issuer := fmt.Sprintf("http://%s", r.Host)
+	issuer := fmt.Sprintf("http://%s", c.Request.Host)
 
 	claims := jwt.MapClaims{
 		"sub":   authData.User.Email, // use email as sub
@@ -268,13 +296,11 @@ func handleToken(w http.ResponseWriter, r *http.Request) {
 		"iat":   now.Unix(),
 	}
 
-	// Add nonce if passed? (Not implemented here, but you could extend)
-
 	idToken := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	idToken.Header["kid"] = keyID
 	signedToken, err := idToken.SignedString(privateKey)
 	if err != nil {
-		http.Error(w, "Failed to sign token", http.StatusInternalServerError)
+		c.String(500, "Failed to sign token")
 		return
 	}
 
@@ -284,11 +310,10 @@ func handleToken(w http.ResponseWriter, r *http.Request) {
 		"token_type":   "Bearer",
 		"expires_in":   "300",
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	c.JSON(200, resp)
 }
 
-func handleJWKS(w http.ResponseWriter, r *http.Request) {
+func handleJWKS(c *gin.Context) {
 	n := base64.RawURLEncoding.EncodeToString(publicKey.N.Bytes())
 	e := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(publicKey.E)).Bytes())
 	jwks := map[string]interface{}{
@@ -303,12 +328,11 @@ func handleJWKS(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(jwks)
+	c.JSON(200, jwks)
 }
 
-func handleDiscovery(w http.ResponseWriter, r *http.Request) {
-	issuer := fmt.Sprintf("http://%s", r.Host)
+func handleDiscovery(c *gin.Context) {
+	issuer := fmt.Sprintf("http://%s", c.Request.Host)
 	config := map[string]interface{}{
 		"issuer":                                issuer,
 		"authorization_endpoint":                issuer + "/authorize",
@@ -320,6 +344,5 @@ func handleDiscovery(w http.ResponseWriter, r *http.Request) {
 		"scopes_supported":                      []string{"openid", "email", "profile"},
 		"token_endpoint_auth_methods_supported": []string{"client_secret_basic", "none"},
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(config)
+	c.JSON(200, config)
 }
