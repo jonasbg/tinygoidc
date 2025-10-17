@@ -1,28 +1,25 @@
 {{define "title"}}Login - Gotiny OIDC Mock{{end}}
 {{define "content"}}
-  <h1>Select User to Login</h1>
-  <form method="POST" action="/authorize" class="card">
-    <input type="hidden" name="client_id" value="{{.ClientID}}">
-    <input type="hidden" name="redirect_uri" value="{{.RedirectURI}}">
-    <input type="hidden" name="state" value="{{.State}}">
-    <input type="hidden" name="nonce" value="{{.Nonce}}">
+<h1>Select User to Login</h1>
+<form method="POST" action="/authorize" class="card">
+  <input type="hidden" name="client_id" value="{{.ClientID}}">
+  <input type="hidden" name="redirect_uri" value="{{.RedirectURI}}">
+  <input type="hidden" name="state" value="{{.State}}">
+  <input type="hidden" name="nonce" value="{{.Nonce}}">
 
-    <ul class="user-list">
+  <ul class="user-grid">
     {{range .Users}}
-      <li class="user-item">
-        <label>
-          <input type="radio" name="sub" value="{{.Email}}" required>
-          <div class="user-meta">
-            <div class="user-name">{{.Name}}</div>
-            <div class="user-email">{{.Email}}</div>
-          </div>
-        </label>
-      </li>
+    <li>
+      <button type="submit" name="sub" value="{{.Email}}" class="user-button">
+        <div class="user-meta">
+          <div class="user-name">{{.Name}}</div>
+          <div class="user-email">{{.Email}}</div>
+        </div>
+      </button>
+    </li>
     {{end}}
-    </ul>
+  </ul>
 
-    <div class="actions">
-      <button type="submit" class="button">Login</button>
-    </div>
-  </form>
+  <!-- actions section removed: individual user buttons now submit the form -->
+</form>
 {{end}}
