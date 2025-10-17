@@ -4,6 +4,8 @@
 
 {{define "content"}}
 <h1>Select User to Login</h1>
+<p class="login-description">Please select a user from the list below to log in. This will simulate an authentication
+  flow for testing purposes.</p>
 <form method="POST" action="/authorize" class="card">
   <input type="hidden" name="client_id" value="{{.ClientID}}">
   <input type="hidden" name="redirect_uri" value="{{.RedirectURI}}">
