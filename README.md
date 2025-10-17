@@ -1,13 +1,13 @@
-<p align="center">
+<div align="center" style="text-align:center">
   <h1>tinygoidc</h1>
-  <img src="static/tinygoidc.png" alt="tinygoidc" style="max-width:100%;height:auto;">
+  <img src="static/tinygoidc.png" alt="tinygoidc" style="max-width:50%;height:auto;">
 
   <small>
     <a href="#overview">About</a> •
     <a href="#get-started">Get Started</a> •
     <a href="#configuration">Config</a>
   </small>
-</p>
+</div>
 
 ## Overview
 
