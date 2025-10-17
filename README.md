@@ -1,19 +1,22 @@
 <div align="center" style="text-align:center">
   <h1>tinygoidc</h1>
-  <img src="static/tinygoidc.png" alt="tinygoidc" style="max-width:50%;height:auto;">
+  <img src="static/tinygoidc.png" alt="tinygoidc" style="max-width:25%;height:auto;display:block;margin:0 auto;margin-bottom:2rem;margin-top:1.7rem;">
 
   <small>
     <a href="#overview">About</a> •
     <a href="#get-started">Get Started</a> •
     <a href="#configuration">Config</a>
   </small>
-</div>
+</div
 
 ## Overview
 
 tinygoidc is a tiny, opinionated mock OpenID Connect (OIDC) provider implemented in Go. It's meant for local development and testing when you need a simple issuer that supports the authorization code flow, a JWKS endpoint, and short-lived ID tokens.
 
 Keep it simple — the server ships as a single compiled binary and a small `users.yaml` for test accounts.
+
+> [!WARNING]
+> Do not install this in a production environment! This is only meant for local development. Use at your own risk.
 
 ## Features
 
