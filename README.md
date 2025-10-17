@@ -66,6 +66,15 @@ docker run --rm -p 9999:9999 tinygoidc:latest
 
 By default the server listens on port 9999 when run with `go run`. When the container runs it exposes port `9999`.
 
+### Tests
+
+Run tests with test coverage
+
+```bash
+go test ./... -coverprofile=coverage.out
+go tool cover -func=coverage.out
+```
+
 ## Configuration
 
 The server reads users from a YAML file. By default it looks for `users.yaml` in the working directory or the path set by the `USERS` environment variable.
