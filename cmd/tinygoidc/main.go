@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"gotiny-oidc/internal/config"
-	"gotiny-oidc/internal/oidc"
-	"gotiny-oidc/internal/server"
+	"tinygoidc/internal/config"
+	"tinygoidc/internal/oidc"
+	"tinygoidc/internal/server"
 )
 
 func main() {

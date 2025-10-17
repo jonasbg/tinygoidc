@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"gotiny-oidc/internal/config"
-	"gotiny-oidc/internal/oidc"
 	"os"
+	"tinygoidc/internal/config"
+	"tinygoidc/internal/oidc"
 
 	"github.com/gin-gonic/gin"
 )

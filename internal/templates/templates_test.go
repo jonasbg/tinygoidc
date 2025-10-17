@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"gotiny-oidc/internal/templates"
+	"tinygoidc/internal/templates"
 )
 
 // TestLoadTemplates ensures embedded templates parse and render without error.

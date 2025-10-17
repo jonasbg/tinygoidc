@@ -7,10 +7,10 @@ RUN go mod download
 COPY . .
 
 ENV CGO_ENABLED=0 GOOS=linux
-# Build the command located under cmd/gotiny-oidc
-RUN go build -ldflags='-s -w' -o /out/gotiny-oidc ./cmd/gotiny-oidc
+# Build the command located under cmd/tinygoidc
+RUN go build -ldflags='-s -w' -o /out/tinygoidc ./cmd/tinygoidc
 RUN apk add --no-cache upx
-RUN upx --best --lzma /out/gotiny-oidc
+RUN upx --best --lzma /out/tinygoidc
 
 # Final stage: minimal image
 FROM scratch
@@ -19,7 +19,7 @@ FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # Copy the compiled binary
-COPY --from=builder /out/gotiny-oidc /usr/local/bin/gotiny-oidc
+COPY --from=builder /out/tinygoidc /usr/local/bin/tinygoidc
 
 # Copy templates and static files
 ## templates/static are embedded into the binary via go:embed
@@ -34,4 +34,4 @@ ENV GIN_MODE=release
 
 EXPOSE 9999
 
-ENTRYPOINT ["/usr/local/bin/gotiny-oidc"]
+ENTRYPOINT ["/usr/local/bin/tinygoidc"]

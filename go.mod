@@ -1,4 +1,4 @@
-module gotiny-oidc
+module tinygoidc
 
 go 1.24.5
 

@@ -54,7 +54,7 @@ Prerequisites:
 Run locally with Go:
 
 ```bash
-go run main.go
+go run cmd/tinygoidc/main.go
 ```
 
 Build and run with Docker (from repository root):

@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"gotiny-oidc/internal/oidc"
+	"tinygoidc/internal/oidc"
 
 	"github.com/golang-jwt/jwt/v5"
 )
