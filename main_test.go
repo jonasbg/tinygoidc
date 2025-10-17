@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 // helper: perform authorize flow: GET /authorize?client_id=...&redirect_uri=...&code_challenge=... then POST /authorize with selected user
@@ -135,5 +136,190 @@ func TestPKCE_WrongVerifier(t *testing.T) {
 	w := doToken(t, srv, code, clientID, "wrong-verifier")
 	if w.Code == 200 {
 		t.Fatalf("expected token exchange to fail with wrong verifier")
+	}
+}
+
+func TestHandleLoginRedirect(t *testing.T) {
+	loadUsers()
+	generateKey()
+	srv := setupRouter()
+
+	req := httptest.NewRequest("GET", "/login?foo=bar", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 302 {
+		t.Fatalf("expected 302 redirect, got %d", w.Code)
+	}
+	loc := w.Header().Get("Location")
+	if !strings.HasPrefix(loc, "/authorize?") {
+		t.Fatalf("expected redirect to /authorize, got %s", loc)
+	}
+}
+
+func TestHandleIndex(t *testing.T) {
+	loadUsers()
+	generateKey()
+	srv := setupRouter()
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("expected 200 OK, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "tinygoidc") {
+		t.Fatalf("expected body to contain 'tinygoidc'")
+	}
+}
+
+func TestHandleJWKS(t *testing.T) {
+	loadUsers()
+	generateKey()
+	srv := setupRouter()
+
+	req := httptest.NewRequest("GET", "/jwks.json", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("expected 200 OK, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "\"keys\"") {
+		t.Fatalf("expected JWKS JSON in response")
+	}
+}
+
+func TestHandleDiscovery(t *testing.T) {
+	loadUsers()
+	generateKey()
+	srv := setupRouter()
+
+	req := httptest.NewRequest("GET", "/.well-known/openid-configuration", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("expected 200 OK, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "issuer") {
+		t.Fatalf("expected issuer in discovery JSON")
+	}
+}
+
+func TestHandleAuthorizeGet_MissingParams(t *testing.T) {
+	loadUsers()
+	generateKey()
+	srv := setupRouter()
+
+	req := httptest.NewRequest("GET", "/authorize", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 400 {
+		t.Fatalf("expected 400 for missing params, got %d", w.Code)
+	}
+}
+
+func TestHandleAuthorizePost_MissingParams(t *testing.T) {
+	loadUsers()
+	generateKey()
+	srv := setupRouter()
+
+	req := httptest.NewRequest("POST", "/authorize", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 400 {
+		t.Fatalf("expected 400 for missing params, got %d", w.Code)
+	}
+}
+
+func TestHandleAuthorizePost_InvalidUser(t *testing.T) {
+	loadUsers()
+	generateKey()
+	srv := setupRouter()
+
+	form := url.Values{}
+	form.Set("sub", "notfound@example.com")
+	form.Set("client_id", "test-client")
+	form.Set("redirect_uri", "http://localhost/cb")
+	req := httptest.NewRequest("POST", "/authorize", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 400 {
+		t.Fatalf("expected 400 for invalid user, got %d", w.Code)
+	}
+}
+
+func TestHandleToken_InvalidOrExpiredCode(t *testing.T) {
+	loadUsers()
+	generateKey()
+	srv := setupRouter()
+
+	form := url.Values{}
+	form.Set("code", "badcode")
+	form.Set("client_id", "test-client")
+	req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 400 {
+		t.Fatalf("expected 400 for invalid/expired code, got %d", w.Code)
+	}
+}
+
+func TestHandleToken_MissingCodeVerifier(t *testing.T) {
+	loadUsers()
+	generateKey()
+	srv := setupRouter()
+
+	// Create a valid code with PKCE challenge
+	code := "testcodepkce"
+	authCodesMux.Lock()
+	authCodes[code] = AuthCodeData{
+		User:                users[0],
+		ClientID:            "test-client",
+		ExpiresAt:           time.Now().Add(5 * time.Minute),
+		CodeChallenge:       "challenge",
+		CodeChallengeMethod: "S256",
+	}
+	authCodesMux.Unlock()
+
+	form := url.Values{}
+	form.Set("code", code)
+	form.Set("client_id", "test-client")
+	req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 400 {
+		t.Fatalf("expected 400 for missing code_verifier, got %d", w.Code)
+	}
+}
+
+func TestHandleToken_UnsupportedCodeChallengeMethod(t *testing.T) {
+	loadUsers()
+	generateKey()
+	srv := setupRouter()
+
+	code := "testcodebadmethod"
+	authCodesMux.Lock()
+	authCodes[code] = AuthCodeData{
+		User:                users[0],
+		ClientID:            "test-client",
+		ExpiresAt:           time.Now().Add(5 * time.Minute),
+		CodeChallenge:       "challenge",
+		CodeChallengeMethod: "BADMETHOD",
+	}
+	authCodesMux.Unlock()
+
+	form := url.Values{}
+	form.Set("code", code)
+	form.Set("client_id", "test-client")
+	form.Set("code_verifier", "challenge")
+	req := httptest.NewRequest("POST", "/token", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 400 {
+		t.Fatalf("expected 400 for unsupported code_challenge_method, got %d", w.Code)
 	}
 }
