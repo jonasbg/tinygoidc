@@ -1,12 +1,11 @@
-<div align="center">
-  <h1>tinygoidc</h1>
-  <img src="static/tinygoidc.png" alt="tinygoidc" width="200" style="display:block;margin:1.7rem auto 2rem;">
-  <small>
-    <a href="#overview">About</a> •
-    <a href="#get-started">Get Started</a> •
-    <a href="#configuration">Config</a>
-  </small>
-</div>
+<p align="center">
+  <h1 align="center">tinygoidc</h1>
+  <img src="static/tinygoidc.png" alt="tinygoidc" width="220">
+  <br>
+  <a href="#overview">About</a> •
+  <a href="#get-started">Get Started</a> •
+  <a href="#configuration">Config</a>
+</p>
 
 ## Overview
 
