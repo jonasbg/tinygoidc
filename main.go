@@ -87,8 +87,8 @@ func main() {
 	http.HandleFunc("/jwks.json", handleJWKS)
 	http.HandleFunc("/.well-known/openid-configuration", handleDiscovery)
 
-	log.Println("Mock OIDC server listening at http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Println("Mock OIDC server listening at http://:9999")
+	log.Fatal(http.ListenAndServe("0.0.0.0:9999", nil))
 }
 
 func handleLoginRedirect(w http.ResponseWriter, r *http.Request) {
