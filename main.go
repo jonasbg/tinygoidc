@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -44,6 +45,7 @@ var (
 	keyID        string
 	authCodes    = map[string]AuthCodeData{}
 	authCodesMux sync.Mutex
+	templates    *template.Template
 )
 
 func loadUsers() {
@@ -84,6 +86,18 @@ func main() {
 	loadUsers()
 	generateKey()
 
+	// Parse templates
+	tplGlob := filepath.Join("templates", "*.html")
+	var err error
+	templates, err = template.ParseGlob(tplGlob)
+	if err != nil {
+		log.Fatalf("Failed to parse templates: %v", err)
+	}
+
+	// Serve static assets
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/authorize", handleAuthorize)
 	http.HandleFunc("/token", handleToken)
@@ -110,7 +124,16 @@ func handleLoginRedirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "<html><body><h1>Mock OIDC Server</h1><p>Use /authorize to start login.</p></body></html>")
+	// Render the layout which will include the index content block
+	// Pass users so the index can render a clickable user list
+	err := templates.ExecuteTemplate(w, "layout.html", map[string]interface{}{
+		"Users": users,
+	})
+	if err != nil {
+		// fallback minimal page
+		fmt.Fprintf(w, "<html><body><h1>Mock OIDC Server</h1><p>Use /authorize to start login.</p></body></html>")
+		return
+	}
 }
 
 // GET /authorize shows user login form
@@ -128,35 +151,17 @@ func handleAuthorize(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		tpl := `
-<html><body>
-<h1>Select User to Login</h1>
-<form method="POST" action="/authorize">
-	<input type="hidden" name="client_id" value="{{.ClientID}}">
-	<input type="hidden" name="redirect_uri" value="{{.RedirectURI}}">
-	<input type="hidden" name="state" value="{{.State}}">
-	<input type="hidden" name="nonce" value="{{.Nonce}}">
-	<ul>
-	{{range .Users}}
-		<li>
-			<label>
-				<input type="radio" name="sub" value="{{.Email}}" required> {{.Name}} ({{.Email}})
-			</label>
-		</li>
-	{{end}}
-	</ul>
-	<button type="submit">Login</button>
-</form>
-</body></html>
-`
-		t := template.Must(template.New("login").Parse(tpl))
-		t.Execute(w, map[string]interface{}{
+		// Render the layout which will include the login content block
+		err := templates.ExecuteTemplate(w, "layout.html", map[string]interface{}{
 			"Users":       users,
 			"ClientID":    clientID,
 			"RedirectURI": redirectURI,
 			"State":       state,
 			"Nonce":       nonce,
 		})
+		if err != nil {
+			http.Error(w, "Template render error", http.StatusInternalServerError)
+		}
 		return
 	}
 

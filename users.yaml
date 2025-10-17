@@ -1,4 +1,6 @@
 users:
+  - name: "Jonas"
+    email: "jonas.bo.grimsgaard@nhn.no"
   - name: "Alice"
     email: "alice@example.com"
   - name: "Bob"

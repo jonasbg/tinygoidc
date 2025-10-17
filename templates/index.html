@@ -1,0 +1,38 @@
+{{define "title"}}tinygoidc - Mock OIDC{{end}}
+{{define "content"}}
+  <h1>tinygoidc</h1>
+  <p>A tiny OpenID Connect mock server for local testing.</p>
+
+  <div class="card">
+    <h3>Quick links</h3>
+    <ul>
+      <li><a href="/.well-known/openid-configuration">OpenID configuration</a></li>
+      <li><a href="/jwks.json">JWKS</a></li>
+      <li><a href="/authorize?client_id=test&redirect_uri=http://localhost:8080/callback">Start authorize (example)</a></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Login as a user</h3>
+    <p>Click a user to immediately start the authorization flow as that user.</p>
+
+    <ul class="user-grid">
+    {{range .Users}}
+      <li>
+        <form method="GET" action="/authorize" class="user-button-form">
+          <input type="hidden" name="client_id" value="test">
+          <input type="hidden" name="redirect_uri" value="http://localhost:8080/callback">
+          <input type="hidden" name="state" value="">
+          <input type="hidden" name="nonce" value="">
+          <input type="hidden" name="sub" value="{{.Email}}">
+          <button type="submit" class="user-button">
+            <div class="user-name">{{.Name}}</div>
+            <div class="user-email">{{.Email}}</div>
+          </button>
+        </form>
+      </li>
+    {{end}}
+    </ul>
+  </div>
+
+{{end}}
