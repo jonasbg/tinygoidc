@@ -47,9 +47,13 @@ var (
 )
 
 func loadUsers() {
-	data, err := os.ReadFile("users.yaml")
+	usersPath := os.Getenv("USERS")
+	if usersPath == "" {
+		usersPath = "users.yaml"
+	}
+	data, err := os.ReadFile(usersPath)
 	if err != nil {
-		log.Fatalf("Failed to read users.yaml: %v", err)
+		log.Fatalf("Failed to read users file (%s): %v", usersPath, err)
 	}
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
@@ -87,8 +91,13 @@ func main() {
 	http.HandleFunc("/jwks.json", handleJWKS)
 	http.HandleFunc("/.well-known/openid-configuration", handleDiscovery)
 
-	log.Println("Mock OIDC server listening at http://:9999")
-	log.Fatal(http.ListenAndServe("0.0.0.0:9999", nil))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "9999"
+	}
+	addr := fmt.Sprintf("0.0.0.0:%s", port)
+	log.Printf("Mock OIDC server listening at http://localhost:%s", port)
+	log.Fatal(http.ListenAndServe(addr, nil))
 }
 
 func handleLoginRedirect(w http.ResponseWriter, r *http.Request) {
