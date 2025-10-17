@@ -82,6 +82,14 @@ Environment variables:
 - `USERS` — path to the users YAML inside the container (default: `/config/users.yaml`)
 - `PORT` — port the app listens on (container default is `9999`, local default is `9999`)
 
+# Screenshots
+
+Landing page
+![landing](static/landing.png)
+
+Login page
+![login](static/login.png)
+
 ## Quick reference
 
 - Authorization endpoint: /authorize
