@@ -22,9 +22,10 @@ import (
 )
 
 type User struct {
-	Sub   string `yaml:"sub"`
-	Name  string `yaml:"name"`
-	Email string `yaml:"email"`
+	Sub      string `yaml:"sub"`
+	Name     string `yaml:"name"`
+	Email    string `yaml:"email"`
+	Initials string `yaml:"-"`
 }
 
 type Config struct {
@@ -66,8 +67,36 @@ func loadUsers() {
 		if cfg.Users[i].Sub == "" {
 			cfg.Users[i].Sub = cfg.Users[i].Email
 		}
+		// Compute initials for avatar display
+		cfg.Users[i].Initials = initials(cfg.Users[i].Name)
 	}
 	users = cfg.Users
+}
+
+// initials returns 1-2 uppercase characters representing the name.
+func initials(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+	parts := strings.Fields(name)
+	// helper to get first rune as string
+	firstRune := func(s string) string {
+		r := []rune(s)
+		if len(r) == 0 {
+			return ""
+		}
+		return string(r[0])
+	}
+	if len(parts) == 1 {
+		r := []rune(parts[0])
+		if len(r) >= 2 {
+			return strings.ToUpper(string(r[0:2]))
+		}
+		return strings.ToUpper(string(r[0]))
+	}
+	// Use first letter of first and last name
+	return strings.ToUpper(firstRune(parts[0]) + firstRune(parts[len(parts)-1]))
 }
 
 func generateKey() {
