@@ -1,0 +1,7 @@
+users:
+  - sub: "user1"
+    name: "Alice"
+    email: "alice@example.com"
+  - sub: "user2"
+    name: "Bob"
+    email: "bob@example.com"

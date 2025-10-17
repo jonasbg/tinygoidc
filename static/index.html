@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mock OIDC Login</title>
+</head>
+<body>
+  <h2>Select a User to Login</h2>
+  <ul>
+    {{range .Users}}
+      <li><a href="/login?sub={{.Sub}}">{{.Name}} ({{.Email}})</a></li>
+    {{end}}
+  </ul>
+</body>
+</html>
