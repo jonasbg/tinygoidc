@@ -1,6 +1,6 @@
 <div align="center">
   <h1 align="center">mocc</h1>
-  <img src="internal/templates/assets/static/mocc.png" alt="mocc" width="220">
+  <img src="internal/templates/assets/static/mocc-logo.png" alt="mocc" width="220">
   <br>
   <a href="#overview">About</a> •
   <a href="#get-started">Get Started</a> •
