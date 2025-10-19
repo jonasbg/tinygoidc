@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -24,6 +25,19 @@ func LoadUsers(path string) ([]User, error) {
 	if err != nil {
 		return nil, err
 	}
+	return parseUsers(data)
+}
+
+// LoadEmbeddedUsers returns the users from the embedded default users.yaml.
+func LoadEmbeddedUsers() ([]User, error) {
+	if len(defaultUsersYAML) == 0 {
+		return nil, errors.New("embedded users configuration is empty")
+	}
+	return parseUsers(defaultUsersYAML)
+}
+
+// parseUsers unmarshals users.yaml data and applies normalization.
+func parseUsers(data []byte) ([]User, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
@@ -38,6 +52,11 @@ func LoadUsers(path string) ([]User, error) {
 		cfg.Users[i].Initials = initials(name)
 	}
 	return cfg.Users, nil
+}
+
+// HasEmbeddedUsers reports whether an embedded users.yaml is present.
+func HasEmbeddedUsers() bool {
+	return len(defaultUsersYAML) > 0
 }
 
 // initials returns 1-2 uppercase characters representing the name.

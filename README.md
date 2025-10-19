@@ -57,6 +57,21 @@ Run locally with Go:
 go run cmd/tinygoidc/main.go
 ```
 
+Or run the compiled binary:
+
+```bash
+./tinygoidc --help
+./tinygoidc --users ./config/users.yaml --port 8080
+```
+
+Cross-compile the same binaries produced by CI:
+
+```bash
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/tinygoidc-linux-amd64 ./cmd/tinygoidc
+GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/tinygoidc-darwin-arm64 ./cmd/tinygoidc
+GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/tinygoidc-windows-arm64.exe ./cmd/tinygoidc
+```
+
 Build and run with Docker (from repository root):
 
 ```bash
@@ -89,10 +104,20 @@ docker run --rm -p 9999:9999 -v $(pwd)/users.yaml:/config/users.yaml tinygoidc:l
 docker run --rm -p 9999:9999 -v $(pwd)/config:/config tinygoidc:latest
 ```
 
+Configuration precedence is command-line flags, then environment variables, then defaults. Flags are available even in the container (`docker run ... tinygoidc --port 8080`).
+
+Flags:
+
+- `--users` — path to the users YAML file (default: `users.yaml`)
+- `--host` — host/IP address to bind to (default: `0.0.0.0`)
+- `--port` — port to listen on (default: `9999`)
+
 Environment variables:
 
-- `USERS` — path to the users YAML inside the container (default: `/config/users.yaml`)
-- `PORT` — port the app listens on (container default is `9999`, local default is `9999`)
+- `TINYGOIDC_USERS` or `USERS` — path to the users YAML (default: `users.yaml`, `/config/users.yaml` in Docker)
+- `TINYGOIDC_HOST` or `HOST` — host/IP address to bind to (default: `0.0.0.0`)
+- `TINYGOIDC_PORT` or `PORT` — port to bind (default: `9999`)
+- If no users file is found and you rely on defaults, the binary falls back to an embedded copy of `users.yaml` bundled at build time.
 
 # Screenshots
 

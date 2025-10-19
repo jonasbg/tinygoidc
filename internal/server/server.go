@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -44,8 +46,20 @@ type authCodeData struct {
 func New(users []config.User, keys *oidc.KeySet) *Server {
 	// load templates from embedded FS
 	t := templates.LoadTemplates()
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	s := &Server{Engine: r, Templates: t, Users: users, Keys: keys, authCodes: map[string]authCodeData{}}
+
+	r.Use(func(c *gin.Context) {
+		c.Next()
+		for _, err := range c.Errors {
+			if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
+				// suppress logging for client disconnects
+				c.Errors = nil
+				break
+			}
+		}
+	})
 
 	// static handler: serve embedded assets first, then try several on-disk locations for dev
 	r.GET("/static/*any", func(c *gin.Context) {
