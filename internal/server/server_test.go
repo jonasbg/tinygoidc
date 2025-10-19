@@ -3,11 +3,13 @@ package server
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -369,5 +371,48 @@ func TestIndexTemplateRendering(t *testing.T) {
 	}
 	if !strings.Contains(body, "Alice Example") {
 		t.Fatalf("expected body to contain user name, got %q", body)
+	}
+}
+
+func TestIgnoreClientDisconnects(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+
+	otherErr := errors.New("boom")
+	c.Error(syscall.EPIPE)      // filtered
+	c.Error(syscall.ECONNRESET) // filtered
+	c.Error(otherErr)           // kept
+
+	mw := ignoreClientDisconnects()
+	mw(c)
+
+	if len(c.Errors) != 1 {
+		t.Fatalf("expected 1 error left, got %d", len(c.Errors))
+	}
+	if !errors.Is(c.Errors[0].Err, otherErr) {
+		t.Fatalf("expected remaining error to be %v, got %v", otherErr, c.Errors[0].Err)
+	}
+}
+
+func TestTruncateDisplay(t *testing.T) {
+	cases := []struct {
+		value string
+		limit int
+		want  string
+	}{
+		{"short", 10, "short"},
+		{"exact", 5, "exact"},
+		{"long-string", 4, "lon…"},
+		{"ééééé", 3, "éé…"},
+		{"truncate", 1, "t"},
+		{"", 5, ""},
+	}
+
+	for _, tc := range cases {
+		got := truncateDisplay(tc.value, tc.limit)
+		if got != tc.want {
+			t.Fatalf("truncateDisplay(%q, %d) = %q, want %q", tc.value, tc.limit, got, tc.want)
+		}
 	}
 }

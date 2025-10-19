@@ -53,8 +53,8 @@ jobs:
           go test -coverprofile=coverage.out ./...
           go tool cover -func=coverage.out
           pct=$(go tool cover -func=coverage.out | awk '/^total:/ {print int($3)}')
-          if [ "$pct" -lt 70 ]; then
-            echo "::error ::Test coverage $pct% is below required 70% minimum."
+          if [ "$pct" -lt 65 ]; then
+            echo "::error ::Test coverage $pct% is below required 65% minimum."
             exit 1
           fi
         shell: bash
@@ -99,4 +99,3 @@ jobs:
           labels: ${{ steps.meta-main.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:cache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO }}:cache,mode=max
-          

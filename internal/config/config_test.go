@@ -35,3 +35,36 @@ func TestLoadUsers(t *testing.T) {
 		t.Fatalf("expected initials to be computed, got empty")
 	}
 }
+
+func TestLoadEmbeddedUsers(t *testing.T) {
+	users, err := LoadEmbeddedUsers()
+	if err != nil {
+		t.Fatalf("LoadEmbeddedUsers failed: %v", err)
+	}
+	if len(users) == 0 {
+		t.Fatalf("expected embedded users, got none")
+	}
+}
+
+func TestHasEmbeddedUsers(t *testing.T) {
+	if !HasEmbeddedUsers() {
+		t.Fatalf("expected embedded users to be available")
+	}
+}
+
+func TestInitials(t *testing.T) {
+	cases := map[string]string{
+		"":                "",
+		" ":               "",
+		"Pat":             "PA",
+		"Li":              "LI",
+		"Ada Lovelace":    "AL",
+		"Grace Brewster":  "GB",
+		"First Middle Last": "FL",
+	}
+	for name, want := range cases {
+		if got := initials(name); got != want {
+			t.Fatalf("initials(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
