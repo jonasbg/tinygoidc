@@ -1,4 +1,4 @@
-module tinygoidc
+module mocc
 
 go 1.25
 

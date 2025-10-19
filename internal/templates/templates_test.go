@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"tinygoidc/internal/templates"
+	"mocc/internal/templates"
 )
 
 // TestLoadTemplates ensures embedded templates parse and render without error.
@@ -29,7 +29,7 @@ func TestLoadTemplates(t *testing.T) {
 		t.Fatalf("failed to execute template: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "tinygoidc") {
+	if !strings.Contains(out, "mocc") {
 		t.Fatalf("rendered output missing expected content, got: %q", out)
 	}
 }

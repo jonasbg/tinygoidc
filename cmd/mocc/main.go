@@ -9,15 +9,15 @@ import (
 	"net"
 	"os"
 
-	"tinygoidc/internal/config"
-	"tinygoidc/internal/oidc"
-	"tinygoidc/internal/server"
+	"mocc/internal/config"
+	"mocc/internal/oidc"
+	"mocc/internal/server"
 )
 
 type options struct {
-	usersPath string
-	host      string
-	port      string
+	usersPath     string
+	host          string
+	port          string
 	usersFromEnv  bool
 	usersFromFlag bool
 }
@@ -42,8 +42,14 @@ func main() {
 
 	addr := net.JoinHostPort(opts.host, opts.port)
 	s.Engine.SetTrustedProxies(nil)
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("failed to listen on %s: %v", addr, err)
+	}
+
 	printBanner(opts.host, opts.port)
-	log.Fatal(s.Engine.Run(addr))
+	log.Fatal(s.Engine.RunListener(ln))
 }
 
 func parseOptions() options {
@@ -74,7 +80,7 @@ func parseOptions() options {
 	flagSet.Usage = func() {
 		out := flagSet.Output()
 		fmt.Fprintf(out, "Usage: %s [flags]\n\n", os.Args[0])
-		fmt.Fprintln(out, "tinygoidc is a mock OIDC provider useful for local development.")
+		fmt.Fprintln(out, "mocc is a mock OIDC provider useful for local development.")
 		fmt.Fprintln(out, "Configuration precedence: flags > environment variables > defaults.")
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, "Environment variables:")
@@ -111,31 +117,35 @@ func firstNonEmpty(values ...string) string {
 
 func printBanner(host, port string) {
 	const banner = `
+┌──────────────────────────────────────────────┐
+│                                              │
+│    ███╗   ███╗ ██████╗  ██████╗  ██████╗     │
+│    ████╗ ████║██╔═══██╗██╔═══██╗██╔═══██╗    │
+│    ██╔████╔██║██║   ██║██║      ██║          │
+│    ██║╚██╔╝██║██║   ██║██║   ██║██║   ██║    │
+│    ██║ ╚═╝ ██║╚██████╔╝╚██████╔╝╚██████╔╝    │
+│    ╚═╝     ╚═╝ ╚═════╝  ╚═════╝  ╚═════╝     │
+│                                              │
+│    MOCC — Minimal OpenID Connect Core        │
+│    https://github.com/jonasbg/mocc           │
+│                                              │
+└──────────────────────────────────────────────┘
 
-
-                     &$$$$$$$$                        
-                 $$$$$::::::::+$$                     
-               $$:$::;$::::::::$;:$$                  
-             $x::::X::x+::::::::$:$:$$                
-            $;::::::::;$::::::::$::::;$               
-           $;;::::::::;$::::::::+x::::+$              
-           $;;:::::::::$:::::::::$:::::$              
-    $X;;;x$X+$$$$:::::;$XX$$$$Xx;$:::::;$x;;:$&       
-   $$;:$+$+;;;::::::::::::::::::::::::;X$X:$;;$       
-    $;;;;$$;;;$$$$$$$$$XXXxxxx+++++xxxXX$$X;:;$       
-     $$;$;;$.       ;$;;;;;;;;;$.       :$X$$$        
-       $;;$           $;:;;;;;$           $+$         
-      $;:X.     $$$:  ;:;;:;;+.  $$ $     :+$         
-      $;;X.    .$$$$  ;;;;:;;;;  $$$X     ;;;$        
-     &X;;;$.          $;XXXX$:$.          $;;$        
-     $;;:;;$+.      X$$;;+$$;;$+$..     $+;:;$        
-     $;;;;;;;:X$$$X;;;$;;;;;;;;$;;:+Xx:;;:;;;$        
-     $;;;:;;;;;;;;;;;;;;$ ; .X;;;;;;;;;:;;:;:$        
-     $;;;;;:;;;:;:;:;;;;;$$$$;:;:;:;:;;;;;;;;$        
-     $;;+$$$X;;;;;;;:;:;;;;;;;;;;;;;;;;;X$$X:$        
-     $;::x;::;;;:$$;;;;;:;;:;:;:;$X;:;;:::$::$&       
 
 `
-	fmt.Println(banner)
-	fmt.Printf("tinygoidc ready on http://%s:%s — happy mocking!\n\n", host, port)
+	displayHost := host
+	if displayHost == "" || displayHost == "0.0.0.0" || displayHost == "::" {
+		displayHost = "localhost"
+	}
+	fmt.Print(banner)
+	fmt.Printf("MOCC ready at http://%s:%s — happy moccing!\n", displayHost, port)
+	fmt.Println()
+	fmt.Println("Quick tips:")
+	fmt.Println("  • --users <path>    override the bundled users list (env: TINYGOIDC_USERS / USERS)")
+	fmt.Println("  • --host <address>  change bind address (env: TINYGOIDC_HOST / HOST)")
+	fmt.Println("  • --port <port>     pick a different port (env: TINYGOIDC_PORT / PORT)")
+	fmt.Println("  • Flags win over env vars; env vars win over built-in defaults.")
+	fmt.Println()
+	fmt.Println("Docs & updates: https://github.com/jonasbg/mocc")
+	fmt.Println()
 }

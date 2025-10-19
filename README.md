@@ -1,6 +1,6 @@
 <div align="center">
-  <h1 align="center">tinygoidc</h1>
-  <img src="internal/templates/assets/static/tinygoidc.png" alt="tinygoidc" width="220">
+  <h1 align="center">mocc</h1>
+  <img src="internal/templates/assets/static/mocc.png" alt="mocc" width="220">
   <br>
   <a href="#overview">About</a> •
   <a href="#get-started">Get Started</a> •
@@ -9,7 +9,7 @@
 
 ## Overview
 
-tinygoidc is a tiny, opinionated mock OpenID Connect (OIDC) provider implemented in Go. It's meant for local development and testing when you need a simple issuer that supports the authorization code flow, a JWKS endpoint, and short-lived ID tokens.
+mocc is a tiny, opinionated mock OpenID Connect (OIDC) provider implemented in Go. It's meant for local development and testing when you need a simple issuer that supports the authorization code flow, a JWKS endpoint, and short-lived ID tokens.
 
 Keep it simple — the server ships as a tiny binary (<5MB) and a small `users.yaml` for test accounts.
 
@@ -31,7 +31,7 @@ Keep it simple — the server ships as a tiny binary (<5MB) and a small `users.y
 ### git going fast
 
 ```bash
-docker run -d --port 9999:9999 ghcr.io/jonasbg/tinygoidc
+docker run -d --port 9999:9999 ghcr.io/jonasbg/mocc
 ```
 
 Then use the localhost:9999 as oidc provider in your config such as:
@@ -54,29 +54,29 @@ Prerequisites:
 Run locally with Go:
 
 ```bash
-go run cmd/tinygoidc/main.go
+go run cmd/mocc/main.go
 ```
 
 Or run the compiled binary:
 
 ```bash
-./tinygoidc --help
-./tinygoidc --users ./config/users.yaml --port 8080
+./mocc --help
+./mocc --users ./config/users.yaml --port 8080
 ```
 
 Cross-compile the same binaries produced by CI:
 
 ```bash
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/tinygoidc-linux-amd64 ./cmd/tinygoidc
-GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/tinygoidc-darwin-arm64 ./cmd/tinygoidc
-GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/tinygoidc-windows-arm64.exe ./cmd/tinygoidc
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/mocc-linux-amd64 ./cmd/mocc
+GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/mocc-darwin-arm64 ./cmd/mocc
+GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o dist/mocc-windows-arm64.exe ./cmd/mocc
 ```
 
 Build and run with Docker (from repository root):
 
 ```bash
-docker build -t tinygoidc:latest .
-docker run --rm -p 9999:9999 tinygoidc:latest
+docker build -t mocc:latest .
+docker run --rm -p 9999:9999 mocc:latest
 ```
 
 By default the server listens on port 9999 when run with `go run`. When the container runs it exposes port `9999`.
@@ -98,13 +98,13 @@ Override the users file in Docker by mounting a file or directory at `/config`:
 
 ```bash
 # Mount a single file
-docker run --rm -p 9999:9999 -v $(pwd)/users.yaml:/config/users.yaml tinygoidc:latest
+docker run --rm -p 9999:9999 -v $(pwd)/users.yaml:/config/users.yaml mocc:latest
 
 # Or mount a directory
-docker run --rm -p 9999:9999 -v $(pwd)/config:/config tinygoidc:latest
+docker run --rm -p 9999:9999 -v $(pwd)/config:/config mocc:latest
 ```
 
-Configuration precedence is command-line flags, then environment variables, then defaults. Flags are available even in the container (`docker run ... tinygoidc --port 8080`).
+Configuration precedence is command-line flags, then environment variables, then defaults. Flags are available even in the container (`docker run ... mocc --port 8080`).
 
 Flags:
 
@@ -114,9 +114,9 @@ Flags:
 
 Environment variables:
 
-- `TINYGOIDC_USERS` or `USERS` — path to the users YAML (default: `users.yaml`, `/config/users.yaml` in Docker)
-- `TINYGOIDC_HOST` or `HOST` — host/IP address to bind to (default: `0.0.0.0`)
-- `TINYGOIDC_PORT` or `PORT` — port to bind (default: `9999`)
+- `MOCC_USERS` or `USERS` — path to the users YAML (default: `users.yaml`, `/config/users.yaml` in Docker)
+- `MOCC_HOST` or `HOST` — host/IP address to bind to (default: `0.0.0.0`)
+- `MOCC_PORT` or `PORT` — port to bind (default: `9999`)
 - If no users file is found and you rely on defaults, the binary falls back to an embedded copy of `users.yaml` bundled at build time.
 
 # Screenshots

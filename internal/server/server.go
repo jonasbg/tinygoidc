@@ -22,9 +22,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
-	"tinygoidc/internal/config"
-	"tinygoidc/internal/oidc"
-	"tinygoidc/internal/templates"
+	"mocc/internal/config"
+	"mocc/internal/oidc"
+	"mocc/internal/templates"
 )
 
 type Server struct {

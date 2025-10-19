@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"mocc/internal/config"
+	"mocc/internal/oidc"
 	"os"
-	"tinygoidc/internal/config"
-	"tinygoidc/internal/oidc"
 
 	"github.com/gin-gonic/gin"
 )
@@ -364,7 +364,7 @@ func TestIndexTemplateRendering(t *testing.T) {
 	}
 	body := w.Body.String()
 	// page title may vary; assert the site name is present
-	if !strings.Contains(body, "tinygoidc") {
+	if !strings.Contains(body, "mocc") {
 		t.Fatalf("expected body to contain page title/site name, got %q", body)
 	}
 	if !strings.Contains(body, "Alice Example") {

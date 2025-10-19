@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git build-base ca-certificates
 WORKDIR /src
@@ -7,10 +7,10 @@ RUN go mod download
 COPY . .
 
 ENV CGO_ENABLED=0 GOOS=linux
-# Build the command located under cmd/tinygoidc
-RUN go build -ldflags='-s -w' -o /out/tinygoidc ./cmd/tinygoidc
+# Build the command located under cmd/mocc
+RUN go build -ldflags='-s -w' -o /out/mocc ./cmd/mocc
 RUN apk add --no-cache upx
-RUN upx --best --lzma /out/tinygoidc
+RUN upx --best --lzma /out/mocc
 
 # Final stage: minimal image
 FROM scratch
@@ -19,7 +19,7 @@ FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # Copy the compiled binary
-COPY --from=builder /out/tinygoidc /usr/local/bin/tinygoidc
+COPY --from=builder /out/mocc /usr/local/bin/mocc
 
 # Copy templates and static files
 ## templates/static are embedded into the binary via go:embed
@@ -34,4 +34,4 @@ ENV GIN_MODE=release
 
 EXPOSE 9999
 
-ENTRYPOINT ["/usr/local/bin/tinygoidc"]
+ENTRYPOINT ["/usr/local/bin/mocc"]
