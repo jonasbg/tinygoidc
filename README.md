@@ -9,7 +9,7 @@
 
 ## Overview
 
-mocc is a tiny, opinionated mock OpenID Connect (OIDC) provider implemented in Go. It's meant for local development and testing when you need a simple issuer that supports the authorization code flow, a JWKS endpoint, and short-lived ID tokens.
+Minimal OpenID Connect Core (mocc) is a tiny, opinionated mock OpenID Connect (OIDC) provider implemented in Go. It's meant for local development and testing when you need a simple issuer that supports the authorization code flow, a JWKS endpoint, and short-lived ID tokens.
 
 Keep it simple — the server ships as a tiny binary (<5MB) and a small `users.yaml` for test accounts.
 
