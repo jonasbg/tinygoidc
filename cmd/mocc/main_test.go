@@ -101,13 +101,13 @@ func TestPrintBanner(t *testing.T) {
 	r.Close()
 
 	output := buf.String()
-	if !strings.Contains(output, "tinygoidc ready at http://localhost:4242") {
+	if !strings.Contains(output, "ready at http://localhost:4242") {
 		t.Fatalf("expected friendly message, got %q", output)
 	}
 	if !strings.Contains(output, "--users <path>") {
 		t.Fatalf("expected tips section, got %q", output)
 	}
-	if !strings.Contains(output, "https://github.com/jonasbg/tinygoidc") {
+	if !strings.Contains(output, "https://github.com/jonasbg/") {
 		t.Fatalf("expected repo link, got %q", output)
 	}
 }

@@ -1,10 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -371,6 +373,46 @@ func TestIndexTemplateRendering(t *testing.T) {
 	}
 	if !strings.Contains(body, "Alice Example") {
 		t.Fatalf("expected body to contain user name, got %q", body)
+	}
+}
+
+func TestRequestLogger(t *testing.T) {
+	var buf bytes.Buffer
+	origFlags := log.Flags()
+	origPrefix := log.Prefix()
+	origOutput := log.Writer()
+	log.SetFlags(0)
+	log.SetPrefix("")
+	log.SetOutput(&buf)
+	defer func() {
+		log.SetFlags(origFlags)
+		log.SetPrefix(origPrefix)
+		log.SetOutput(origOutput)
+	}()
+
+	r := gin.New()
+	r.Use(requestLogger())
+	r.GET("/authorize", func(c *gin.Context) {
+		c.Header("Location", "http://callback")
+		c.String(302, "redirecting")
+	})
+
+	req := httptest.NewRequest("GET", "/authorize?client_id=test-client&scope=openid", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	out := buf.String()
+	if !strings.Contains(out, "GET /authorize -> 302") {
+		t.Fatalf("expected log to include method/path/status, got %q", out)
+	}
+	if !strings.Contains(out, "client_id=test-client") {
+		t.Fatalf("expected log to include client_id, got %q", out)
+	}
+	if !strings.Contains(out, "scope=openid") {
+		t.Fatalf("expected log to include scope, got %q", out)
+	}
+	if !strings.Contains(out, "location=http://callback") {
+		t.Fatalf("expected log to include redirect location, got %q", out)
 	}
 }
 
