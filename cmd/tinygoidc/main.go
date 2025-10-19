@@ -32,7 +32,6 @@ func main() {
 			if err != nil {
 				log.Fatalf("failed to load embedded users: %v", err)
 			}
-			log.Printf("Using embedded users.yaml (original path %s missing)", opts.usersPath)
 		} else {
 			log.Fatalf("failed to load users (%s): %v", opts.usersPath, err)
 		}
@@ -43,6 +42,7 @@ func main() {
 
 	addr := net.JoinHostPort(opts.host, opts.port)
 	s.Engine.SetTrustedProxies(nil)
+	printBanner(opts.host, opts.port)
 	log.Fatal(s.Engine.Run(addr))
 }
 
@@ -107,4 +107,35 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func printBanner(host, port string) {
+	const banner = `
+
+
+                     &$$$$$$$$                        
+                 $$$$$::::::::+$$                     
+               $$:$::;$::::::::$;:$$                  
+             $x::::X::x+::::::::$:$:$$                
+            $;::::::::;$::::::::$::::;$               
+           $;;::::::::;$::::::::+x::::+$              
+           $;;:::::::::$:::::::::$:::::$              
+    $X;;;x$X+$$$$:::::;$XX$$$$Xx;$:::::;$x;;:$&       
+   $$;:$+$+;;;::::::::::::::::::::::::;X$X:$;;$       
+    $;;;;$$;;;$$$$$$$$$XXXxxxx+++++xxxXX$$X;:;$       
+     $$;$;;$.       ;$;;;;;;;;;$.       :$X$$$        
+       $;;$           $;:;;;;;$           $+$         
+      $;:X.     $$$:  ;:;;:;;+.  $$ $     :+$         
+      $;;X.    .$$$$  ;;;;:;;;;  $$$X     ;;;$        
+     &X;;;$.          $;XXXX$:$.          $;;$        
+     $;;:;;$+.      X$$;;+$$;;$+$..     $+;:;$        
+     $;;;;;;;:X$$$X;;;$;;;;;;;;$;;:+Xx:;;:;;;$        
+     $;;;:;;;;;;;;;;;;;;$ ; .X;;;;;;;;;:;;:;:$        
+     $;;;;;:;;;:;:;:;;;;;$$$$;:;:;:;:;;;;;;;;$        
+     $;;+$$$X;;;;;;;:;:;;;;;;;;;;;;;;;;;X$$X:$        
+     $;::x;::;;;:$$;;;;;:;;:;:;:;$X;:;;:::$::$&       
+
+`
+	fmt.Println(banner)
+	fmt.Printf("tinygoidc ready on http://%s:%s — happy mocking!\n\n", host, port)
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"mime"
 	"net/http"
 	"net/url"
@@ -47,19 +48,12 @@ func New(users []config.User, keys *oidc.KeySet) *Server {
 	// load templates from embedded FS
 	t := templates.LoadTemplates()
 	gin.SetMode(gin.ReleaseMode)
-	r := gin.Default()
+	r := gin.New()
 	s := &Server{Engine: r, Templates: t, Users: users, Keys: keys, authCodes: map[string]authCodeData{}}
 
-	r.Use(func(c *gin.Context) {
-		c.Next()
-		for _, err := range c.Errors {
-			if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
-				// suppress logging for client disconnects
-				c.Errors = nil
-				break
-			}
-		}
-	})
+	r.Use(gin.Recovery())
+	r.Use(requestLogger())
+	r.Use(ignoreClientDisconnects())
 
 	// static handler: serve embedded assets first, then try several on-disk locations for dev
 	r.GET("/static/*any", func(c *gin.Context) {
@@ -289,3 +283,80 @@ func (s *Server) handleDiscovery(c *gin.Context) {
 
 // helper small wrappers to avoid extra imports in this patch
 func stringsToUpper(s string) string { return strings.ToUpper(s) }
+
+func requestLogger() gin.HandlerFunc {
+	interestingKeys := []string{
+		"response_type",
+		"client_id",
+		"redirect_uri",
+		"scope",
+		"state",
+		"nonce",
+		"code_challenge",
+		"code_challenge_method",
+		"grant_type",
+		"code",
+		"code_verifier",
+	}
+
+	return func(c *gin.Context) {
+		c.Next()
+
+		method := c.Request.Method
+		path := c.Request.URL.Path
+		status := c.Writer.Status()
+
+		details := make([]string, 0, len(interestingKeys))
+		for _, key := range interestingKeys {
+			if val := c.Query(key); val != "" {
+				details = append(details, fmt.Sprintf("%s=%s", key, truncateDisplay(val, 60)))
+				continue
+			}
+			if val := c.PostForm(key); val != "" {
+				details = append(details, fmt.Sprintf("%s=%s", key, truncateDisplay(val, 60)))
+			}
+		}
+
+		if loc := c.Writer.Header().Get("Location"); loc != "" {
+			details = append(details, fmt.Sprintf("location=%s", truncateDisplay(loc, 80)))
+		}
+
+		msg := fmt.Sprintf("%s %s -> %d", method, path, status)
+		if len(details) > 0 {
+			msg = fmt.Sprintf("%s [%s]", msg, strings.Join(details, " "))
+		}
+
+		log.Println(msg)
+	}
+}
+
+func ignoreClientDisconnects() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+		if len(c.Errors) == 0 {
+			return
+		}
+		filtered := c.Errors[:0]
+		for _, err := range c.Errors {
+			if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
+				continue
+			}
+			filtered = append(filtered, err)
+		}
+		c.Errors = filtered
+	}
+}
+
+func truncateDisplay(val string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	runes := []rune(val)
+	if len(runes) <= limit {
+		return val
+	}
+	if limit == 1 {
+		return string(runes[0])
+	}
+	return string(runes[:limit-1]) + "…"
+}
